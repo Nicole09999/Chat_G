@@ -2,7 +2,7 @@ import os
 import io
 from flask import Flask, render_template_string, request, session
 from flask_sqlalchemy import SQLAlchemy
-from pyngrok import ngrok
+#from pyngrok import ngrok
 from transformers import pipeline, BartTokenizer, BartForConditionalGeneration
 from PIL import Image
 import fitz  # PyMuPDF
@@ -540,10 +540,5 @@ html_template = """
    """
 
 if __name__ == '__main__':
-       # Create a public URL using ngrok
-       ngrok.set_auth_token("2jTVA52rIGDxIbKam34ePpFAusk_6MJomTiYcVzhsh3PMxY7o")
-       public_url = ngrok.connect(5000)
-       print(" * ngrok tunnel: ", public_url)
-
-       # Run the Flask application
-       app.run()
+    # Run the Flask application
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
