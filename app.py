@@ -2,7 +2,7 @@ import os
 import io
 from flask import Flask, render_template_string, request, session
 from flask_sqlalchemy import SQLAlchemy
-#from pyngrok import ngrok
+# from pyngrok import ngrok
 from transformers import pipeline, BartTokenizer, BartForConditionalGeneration
 from PIL import Image
 import fitz  # PyMuPDF
@@ -16,12 +16,8 @@ import pytesseract
 import groq
 from spire.doc import *
 from spire.doc.common import *
-# import docx2txt
-# !pip install python-docx
 import re
-# Import required libraries
 from docx import Document
-from google.colab import files
 from datetime import datetime
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
