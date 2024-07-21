@@ -14,3 +14,7 @@ spire.doc==11.8.0
 python-docx==0.8.11
 numpy==1.25.2
 pip==23.1.2
+imageio==2.31.6
+imageio-ffmpeg==0.5.1
+imagesize==1.4.1
+imbalanced-learn==0.10.1
