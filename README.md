@@ -2,7 +2,10 @@
 # Installation and Setup Instructions
 1. Install Dependencies:
 Use the provided pip command to install all necessary libraries:
-pip install Flask Flask-SQLAlchemy pyngrok transformers pillow fitz pdfplumber python-pptx torch torchvision pytesseract groq-client python-docx
+```
+pip install Flask Flask-SQLAlchemy pyngrok transformers pillow fitz pdfplumber python-pptx torch torchvision groq-client python-docx
+```
+install pytesseract if you have Tesseract on your system as it requires to be install manually on the system else we still have tried to get the accurate summary of the document.
 2. Set Up the Flask App:
 Save the provided code into a Python file, e.g., `app.py`.
 3. Run the Flask App:
