@@ -69,8 +69,6 @@ graph_model.eval()
 # def summarize_text_from_word(text):
 #     chunks = [text[i:i + 1000] for i in range(0, len(text), 1000)]
 #     return "".join(summarizer(chunk, max_length=130, min_length=40, do_sample=False)[0]["summary_text"] for chunk in chunks)
-pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-
 def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces/newlines with a single space
     text = text.strip()  # Remove leading and trailing whitespace
