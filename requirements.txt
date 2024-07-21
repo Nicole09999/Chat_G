@@ -1,4 +1,4 @@
-Flask==2.3.2
+Flask==2.2.5
 Flask-SQLAlchemy==3.0.5
 transformers==4.31.0
 torch==2.0.1
