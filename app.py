@@ -38,6 +38,9 @@ class Summary(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
 
+# Create the database and tables
+with app.app_context():
+    db.create_all()
 class QuestionAnswer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(500), nullable=False)
@@ -62,6 +65,10 @@ graph_model = models.resnet50(pretrained=True)
 num_classes = len(graph_labels)
 graph_model.fc = torch.nn.Linear(graph_model.fc.in_features, num_classes)
 graph_model.eval()
+
+# def summarize_text_from_word(text):
+#     chunks = [text[i:i + 1000] for i in range(0, len(text), 1000)]
+#     return "".join(summarizer(chunk, max_length=130, min_length=40, do_sample=False)[0]["summary_text"] for chunk in chunks)
 
 def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces/newlines with a single space
@@ -120,6 +127,15 @@ def read_word_file(file_path):
     for para in doc.paragraphs:
         full_text.append(para.text)
     return '\n'.join(full_text)
+
+# Summarize text
+# def summarize_text(text):
+#     chunks = [text[i:i + 1000] for i in range(0, len(text), 1000)]
+#     return "".join(summarizer(chunk, max_length=102, min_length=40, do_sample=False)[0]["summary_text"] for chunk in chunks)
+
+# def summarize_text_from_ppt(text):
+#     chunks = [text[i:i + 1000] for i in range(0, len(text), 1000)]
+#     return "".join(summarizer(chunk, max_length=130, min_length=30, do_sample=False)[0]["summary_text"] for chunk in chunks)
 
 # Extract limited images from PDF
 def extract_limited_images_from_pdf(pdf_path, image_dir, limit=4):
@@ -196,204 +212,146 @@ def answer_question(question, context):
     )
     return response.choices[0].message.content
 
-@app.route("/", methods=["GET", "POST"])
-def home():
-    status = "Leverage the chatbot's analysis tool for your documents.\nUpload your Document to access chat."
-    result = None
-    query = None
-    result_sum = None
-    history = QuestionAnswer.query.order_by(QuestionAnswer.timestamp.desc()).all()
 
-    if request.method == "POST":
-        if "file" in request.files:
-            file = request.files["file"]
-            if file.filename:
-                # Save the uploaded file
-                file_path = os.path.join("uploads", file.filename)
-                file.save(file_path)
+html_template = """
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+       <title>Document Processor</title>
+       <style>
+           body {
+               /* background-image: #ffff; */
+               font-family: sans-serif;
+               background-color: rgb(4,4,102);
+               height:100%;
+               width:100%;
 
-                # Determine the file type
-                if file.filename.endswith(".pdf"):
-                    text = extract_text_from_pdf(file_path)
-                    summary = summ(text)
-                    summary = format_bullet_points(summary)
-                    new_summary = Summary(content=summary)
-                    db.session.add(new_summary)
-                    db.session.commit()
+           }
+           .main {
+               background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
+               /* max-width: 620px; */
+               /* background-color: white; */
+               margin: 40px;
+               padding: 20px;
+               border: 1px solid #ddd;
+               border-radius: 5px;
+               box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+               color: #533a8c;
+               height: 645px;
+           }
+           .header {
+               display: flex;
+               justify-content: space-between;
+               margin-bottom: 10px;
+               color: rgb(4,4,102);
+           }
+           .model {
+               font-weight: bold;
+           }
+           .chat-window {
+               border: 1px solid rgb(4,4,102);
+               padding: 10px;
+               height: 79%;
+               overflow-y: scroll;
+               margin-bottom: 10px;
+           }
+           .chat-message {
+               margin-bottom: 10px;
+           }
+           .chat-message p {
+               margin: 0;
+               justify-content:flex-end;
+           }
+          .upload-file{
+            display:flex;
+            flex-direction:row;
+            justify-content:space-between;
+            align-items:center;
+            margin-top:0px;
+          }
+           .user-query {
 
-                    session['summary_id'] = new_summary.id
-                    result_sum = summary
-                    status = "PDF processed and summary generated."
-
-                elif file.filename.endswith((".ppt", ".pptx")):
-                    text = extract_text_from_ppt(file_path)
-                    summary = summ(text)
-                    extracted_images = extract_images_from_ppt(file_path)
-                    descriptions = [summary]
-                    for image_file in extracted_images:
-                        extracted_text = extract_text_from_image(image_file)
-                        descriptions.append(extracted_text)
-                    result = "\n".join(descriptions)
-                    summary = format_bullet_points(summary)
-                    result_sum = Summary(content=summary)
-                    db.session.add(result_sum)
-                    db.session.commit()
-                    session['summary_id'] = result_sum.id
-                    status = "PPT processed and descriptions generated."
-
-                elif file.filename.endswith((".doc", ".docx")):
-                    text = read_word_file(file_path)
-                    summary = summ(text)
-                    new_summary = Summary(content=summary)
-                    db.session.add(new_summary)
-                    db.session.commit()
-
-                    session['summary_id'] = new_summary.id
-                    summary = format_bullet_points(summary)
-                    result_sum = summary
-                    status = "Word document processed and summary generated."
-
-        elif "query" in request.form:
-            query = request.form["query"]
-            summary_id = session.get('summary_id')
-
-            if summary_id:
-                summary = Summary.query.get(summary_id)
-                if summary:
-                    context = summary.content
-                    result = answer_question(query, context)
-                    new_qa = QuestionAnswer(question=query, answer=result)
-                    db.session.add(new_qa)
-                    db.session.commit()
-                    status = "Question answered based on the provided context."
-                else:
-                    status = "Summary not found for the provided context."
-            else:
-               status = "No summary available to provide context for the query."
-
-    html = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
-    <title>Document Processor</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            background-color: rgb(4,4,102);
-            height: 100%;
-            width: 100%;
-        }
-        .main {
-            background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-            margin: 40px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            color: #533a8c;
-            height: 645px;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            color: rgb(4,4,102);
-        }
-        .model {
-            font-weight: bold;
-        }
-        .chat-window {
-            border: 1px solid rgb(4,4,102);
-            padding: 10px;
-            height: 79%;
-            overflow-y: scroll;
-            margin-bottom: 10px;
-        }
-        .chat-message {
-            margin-bottom: 10px;
-        }
-        .chat-message p {
-            margin: 0;
-            justify-content: flex-end;
-        }
-        .upload-file {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 0px;
-        }
-        .user-query {
             padding: 10px;
             border-radius: 10px;
             margin-bottom: 10px;
             text-align: center;
-            display: flex;
-            margin-right: 300px;
-            width: 100%;
-            max-width: 600px;
-            justify-content: flex-end;
-            align-items: center;
-        }
-        .chat-response {
-            text-align: left;
-            background-color: #8f8f8f;
-        }
-        .output-status {
-            font-size: 0.9em;
-            color: gray;
-            text-align: center;
-            margin-top: 10px;
-        }
-        .input-area {
-            display: flex;
-            flex-direction: row;
-            width: 100%;
-        }
-        .input-area input[type="text"] {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            justify-content: center;
-            align-items: center;
-            align-content: center;
-            flex-grow: 1;
-            margin-right: 50px;
-        }
-        .input-area button[type="upload"] {
-            border: 1px solid #ddd;
-            border-radius: 15px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            width: 100px;
-            height: 40px;
-        }
-        .input-area button {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-        }
-        .input-area button:hover {
-            background-color: linear-gradient(to right, #ff8177 0%, #ff867a 0%, #ff8c7f 21%, #f99185 52%, #cf556c 78%, #b12a5b 100%);
-        }
-        .input-area input[type='file'] {
-            display: none;
-            font-size: large;
-        }
-        .btn_submit {
-            width: 90px;
-            height: 42px;
-            border-radius: 15px;
-        }
-        /* Responsive design */
+            display:flex;
+            margin-right:300px;
+            width:100%;
+            max-width:600px;
+            justify-content:flex-end;
+            align-items:center;
+           }
+           .chat-response {
+               text-align: left;
+               background-color:#8f8f8f
+           }
+           .output-status {
+               font-size: 0.9em;
+               color: gray;
+               text-align: center;
+               margin-top: 10px;
+           }
+           .input-area {
+               display: flex;
+               flex-direction: row;
+              #  align-items: center;
+              #  justify-content: flex-end;
+               width: 100%;
+              #  align-content: center;
+           }
+           .input-area input[type="text"] {
+               padding: 10px;
+               border: 1px solid #ddd;
+               border-radius: 5px;
+              #  width: 100%;
+              #  max-width:600px;
+              #  margin-left: 0px;
+               justify-content: center;
+               align-items: center;
+               align-content: center;
+               flex-grow: 1;
+              margin-right: 50px;
+
+           }
+
+           .input-area button[type="upload"] {
+               border: 1px solid #ddd;
+               border-radius: 15px;
+               background-color: #007bff;
+               color: white;
+               cursor: pointer;
+               width:100px;
+              height:40px;
+           }
+           .input-area button {
+               padding: 10px;
+               border: 1px solid #ddd;
+               border-radius: 5px;
+               background-color: #007bff;
+               color: white;
+               cursor: pointer;
+           }
+           .input-area button:hover {
+               background-color: linear-gradient(to right, #ff8177 0%, #ff867a 0%, #ff8c7f 21%, #f99185 52%, #cf556c 78%, #b12a5b 100%);
+           }
+           .input-area input[type='file'] {
+              display:none
+               font-size: large;
+           }
+           .btn_submit{
+            # justify-content-right;
+            width:90px;
+            height:42px;
+            border-radius:15px 15px 15px 15px;
+            # margin-right:30px
+           }
+
+             /* Responsive design */
         @media (min-width: 600px) {
             .input-area {
                 flex-direction: row;
@@ -401,11 +359,10 @@ def home():
                 width: 100%;
             }
             .input-area input[type="text"] {
-                margin-top: 0px;
+              margin-top:0px;
                 width: 600px; /* 70% width on medium and large screens */
                 max-width: 600px;
             }
-        }
         #status-message {
             display: flex;
             align-items: center;
@@ -433,69 +390,152 @@ def home():
                 opacity: 1;
             }
         }
-        #boxing {
-            background-color: #0f0f0f;
-            color: white;
+        #boxing{
+          background-color:#0f0f0f
+          color:white
         }
-    </style>
-    <script>
+       </style>
+           <script>
         function showProcessingMessage() {
             document.getElementById('status-message').innerHTML = 'Summarizing your document<span class="dots">.</span><span class="dots">.</span><span class="dots">.</span>';
         }
     </script>
-</head>
-<body>
-    <div class="main">
-        <div class="header">
-            <span class="model"><h2>Model: ChatG</h2></span>
-            <span><h3><i>So what's on your mind right now?</i></h3></span>
-        </div>
-        <div class="chat-window" id="chat-window">
-            <p id="status-message"></p>
-            {% if query %}
-            <div class="chat-message user-query" id="boxing">
-                <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><strong>Question: {{ query }}</strong></p>
-            </div>
-            {% endif %}
-            {% if result_sum %}
-            <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><b>{{ result_sum }}</b></p><br><br>
-            {% endif %}
-            {% if result %}
-            <div class="chat-message user-response">
-                <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><strong>Response-> {{ result }}</strong></p>
-            </div>
-            {% endif %}
-            <div class="output-status">Upload the PDF, PPT OR Word and get its analysis and ask your questions{{ status }}</div>
-        </div>
-        <div style="display: flex; align-items: center;">
-            <div class="input-area">
-                <div style="display: flex; flex-direction: row; justify-content: flex-center; align-items: center; margin-left: 20%">
-                    <div class="upload-file">
-                        <form method="post" enctype="multipart/form-data">
-                            <input type="file" name="file" id="file" accept=".pdf,.ppt,.pptx,.doc,.docx" hidden>
-                            <label for="file">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-                                    <path d="M19 13h-6v6h-2v-6h-6v-2h6v-6h2v6h6v2zm-8-9c-1.1 0-2.9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2.9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                                </svg>
-                            </label>
-                            <button type="submit" onclick="showProcessingMessage()">Upload</button>
-                        </form>
-                    </div>
-                    <form method="post" enctype="multipart/form-data">
-                        <input style="border-radius: 35px; padding: 20px; margin-left: 20px; margin-right: 20px" type="text" name="user_query" placeholder="Ask a question...">
-                        <button class="btn_submit" type="submit">Ask</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+   </head>
+   <body>
+       <div class="main">
+           <div class="header">
+               <span class="model"><h2>Model: ChatG</h2></span>
+               <span><h3><i>So what's on your mind right now?</i></h3></span>
+               <!-- <span><h3><i>SO WHAT'S ON YOUR MIND NOW?</i></h3></span> -->
+
+           </div>
+           <div class="chat-window" id="chat-window">
+<p id="status-message"></p>
+               {% if query %}
+               <div class="chat-message user-query" id="boxing">
+               <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><strong>Question: {{ query }}</strong> </p>
+               </div>
+               {% endif %}
+                {% if result_sum %}
+                       <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><b>{{ result_sum }}</b></p><br><br>
+                    {% endif %}
+               {% if result %}
+               <div class="chat-message user-response">
+                   <p style="background-color:rgb(4,4,102);color:#ffff;border-radius:20px 20px 20px 20px;padding:15px"><strong>Response-> {{ result }}</strong> </p>
+               </div>
+               {% endif %}
+               <div class="output-status">Upload the PDF,PPT OR Word and get its analysis and ask your questions{{ status }}</div>
+           </div>
+           <div style="display: flex; align-items: center;">
+           <div class="input-area">
+  <div style="display:flex;flex-direction:row;justify-content:flex-center;align-items:center;margin-left:20%">
+    <div class="upload-file">
+      <form method="post" enctype="multipart/form-data">
+        <input type="file" name="file" id="file" accept=".pdf,.ppt,.pptx,.doc,.docx" hidden>
+        <label for="file">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19 13h-6v6h-2v-6h-6v-2h6v-6h2v6h6v2zm-8-9c-1.1 0-2.9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2.9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </label>
+        <button type="submit" onclick="showProcessingMessage()">Upload</button>
+      </form>
     </div>
-</body>
-</html>
-"""
-    return render_template_string(html, result=result, query=query, result_sum=result_sum, status=status, history=history)
- 
+    <form method="post" enctype="multipart/form-data">
+    <input style="border-radius:35px;padding:20px;margin-left:20px;margin-right:20px" type="text" name="user_query" placeholder="Ask a question...">
+    <button class="btn_submit" type="submit">Ask</button>
+    </form>
+  </div>
+</div>
+           </div>
+       </div>
+   </body>
+   </html>
+   """
+@app.route("/", methods=["GET", "POST"])
+def home():
+    status = ".Leverage the chatbot's analysis tool for your documents.\nUpload your Document to access chat."
+    result = None
+    query = None
+    result_sum = None
+    history = QuestionAnswer.query.order_by(QuestionAnswer.timestamp.desc()).all()
+
+    if request.method == "POST":
+        if "file" in request.files:
+            file = request.files["file"]
+            if file.filename:
+                # Save the uploaded file
+                file_path = os.path.join("uploads", file.filename)
+                file.save(file_path)
+
+                # Determine the file type
+                if file.filename.endswith(".pdf"):
+                    print("uploaded pdf n now extracting text")
+                    text = extract_text_from_pdf(file_path)
+                    print("text extracted n now summary time")
+                    summary = summ(text)
+                    summary = format_bullet_points(summary)
+                    new_summary = Summary(content=summary)
+                    db.session.add(new_summary)
+                    db.session.commit()
+
+                    session['summary_id'] = new_summary.id
+                    result_sum = summary
+                    status = "PDF processed and summary generated."
+                    print("summary:- ",result_sum)
+
+                elif file.filename.endswith((".ppt", ".pptx")):
+                       print("uploaded ppt n now extracting text")
+                       text = extract_text_from_ppt(file_path)
+                       print("text extracted n now summary time")
+                       summary = summ(text)
+                       print("summary of text done n extracting images now")
+                       extracted_images = extract_images_from_ppt(file_path)
+                       descriptions = [summary]
+                       print("extracting text from images")
+                       for image_file in extracted_images:
+                           extracted_text = extract_text_from_image(image_file)
+                           descriptions.append(extracted_text)
+                       result = "\n".join(descriptions)
+                       # Save summary to the database
+                       summary = format_bullet_points(summary)
+                       result_sum = Summary(content=summary)
+                       db.session.add(result_sum)
+                       db.session.commit()
+                       session['summary_id'] = result_sum.id
+                       status = "PPT processed and descriptions generated."
+
+                elif file.filename.endswith((".doc", ".docx")):
+                       print("uploaded word doc n extracting text now")
+                       text = read_word_file(file_path)
+                       print("text done now summary time")
+                       summary = summ(text)
+
+                       # Save summary to the database
+                       new_summary = Summary(content=summary)
+                       db.session.add(new_summary)
+                       db.session.commit()
+
+                       session['summary_id'] = new_summary.id
+                       summary = format_bullet_points(summary)
+                       result_sum = summary
+                       status = "Word document processed and summary generated."
+
+        if "user_query" in request.form:
+               user_query = request.form.get("user_query")
+               summary_id = session.get('summary_id', None)
+               if summary_id:
+                   summary = Summary.query.get(summary_id).content
+                   if user_query:
+                       answer = answer_question(user_query, summary)
+                       query = user_query
+                       result = answer if answer else "Sorry, I couldn't find an answer."
+                       result = format_bullet_points(answer)
+                       qa_entry = QuestionAnswer(question=user_query, answer=result)
+                       db.session.add(qa_entry)
+                       db.session.commit()
+                   else:
+                     result = "Please upload a file and generate a summary first."
 
 
+    return render_template_string(html_template, result=result, query=query, result_sum=result_sum, status=status, history=history)
 
 
 # Step 9: Run the Flask app
