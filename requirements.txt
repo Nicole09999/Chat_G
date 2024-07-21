@@ -11,3 +11,6 @@ nltk==3.8.1
 PyMuPDF==1.23.1
 numpy==1.23.5
 groq==0.9.0
+spire.doc==10.8.0
+python-docx==0.8.11
+nltk==3.8.1
