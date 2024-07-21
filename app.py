@@ -21,7 +21,7 @@ from docx import Document
 from datetime import datetime
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-
+import PIL.Image
 # Step 3: Define the Flask app
 app = Flask(__name__)
 app.secret_key = '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'  # Required for session management
