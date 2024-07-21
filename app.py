@@ -269,9 +269,9 @@ def home():
                 else:
                     status = "Summary not found for the provided context."
             else:
-                status = "No summary available to provide context for the query."
+               status = "No summary available to provide context for the query."
 
-     html = """
+    html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -493,7 +493,12 @@ def home():
 </html>
 """
     return render_template_string(html, result=result, query=query, result_sum=result_sum, status=status, history=history)
+ 
 
-if __name__ == '__main__':
+
+
+
+# Step 9: Run the Flask app
+if __name__ == "__main__":
     # Run the Flask application
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
