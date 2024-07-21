@@ -12,7 +12,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 import torch
 import torchvision.transforms as transforms
 from torchvision import models
-import pytesseract
+#import pytesseract
 import groq
 from spire.doc import *
 from spire.doc.common import *
@@ -106,9 +106,9 @@ def extract_images_from_ppt(ppt_path):
     return image_files
 
 # Function to extract text from an image using OCR
-def extract_text_from_image(image_path):
-    image = PIL.Image.open(image_path)
-    return pytesseract.image_to_string(image)
+#def extract_text_from_image(image_path):
+ #   image = PIL.Image.open(image_path)
+ #   return pytesseract.image_to_string(image)
 
 # Extract text from PDF
 def extract_text_from_pdf(pdf_path):
@@ -489,9 +489,9 @@ def home():
                        extracted_images = extract_images_from_ppt(file_path)
                        descriptions = [summary]
                        print("extracting text from images")
-                       for image_file in extracted_images:
-                           extracted_text = extract_text_from_image(image_file)
-                           descriptions.append(extracted_text)
+                       #for image_file in extracted_images:
+                        #   extracted_text = extract_text_from_image(image_file)
+                        #   descriptions.append(extracted_text)
                        result = "\n".join(descriptions)
                        # Save summary to the database
                        summary = format_bullet_points(summary)
