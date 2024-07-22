@@ -1,3 +1,7 @@
+
+import nltk
+nltk.download('stopwords')
+nltk.download('punkt')
 import os
 import io
 from flask import Flask, render_template_string, request, session
@@ -22,6 +26,7 @@ from datetime import datetime
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import PIL.Image
+from datetime import datetime
 # Step 3: Define the Flask app
 app = Flask(__name__)
 app.secret_key = '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'  # Required for session management
@@ -37,6 +42,7 @@ db = SQLAlchemy(app)
 class Summary(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 # Create the database and tables
 with app.app_context():
@@ -518,20 +524,41 @@ def home():
                        status = "Word document processed and summary generated."
 
         if "user_query" in request.form:
-               user_query = request.form.get("user_query")
-               summary_id = session.get('summary_id', None)
-               if summary_id:
-                   summary = Summary.query.get(summary_id).content
-                   if user_query:
-                       answer = answer_question(user_query, summary)
-                       query = user_query
-                       result = answer if answer else "Sorry, I couldn't find an answer."
-                       result = format_bullet_points(answer)
-                       qa_entry = QuestionAnswer(question=user_query, answer=result)
-                       db.session.add(qa_entry)
-                       db.session.commit()
-                   else:
-                     result = "Please upload a file and generate a summary first."
+            user_query = request.form.get("user_query")
+            summary_id = session.get('summary_id', None)
+            if summary_id:
+                summary = Summary.query.get(summary_id).content
+
+            if user_query:
+                if user_query.lower() == 'question history':
+                    query = user_query
+                    qa_entries = QuestionAnswer.query.order_by(QuestionAnswer.timestamp.desc()).all()
+                    result = "\n".join([f"Q: {qa.question}\nA: {qa.answer}" for qa in qa_entries])
+                elif user_query.lower() == 'summary history':
+                    query = user_query
+                    summaries = Summary.query.order_by(Summary.id.desc()).all()
+                    result = "\n".join([f"Summary {i+1}:\n{summary.content}" for i, summary in enumerate(summaries)])
+                elif user_query.startswith('[integrate]'):
+                    query = user_query
+                    summaries = Summary.query.order_by(Summary.timestamp).all()
+                    combined_summary = " ".join(summary.content for summary in summaries)
+                    combined_summary = preprocess_text(combined_summary)
+                    user_query = user_query[len('[integrate]'):].strip()  # Remove the [integrate] keyword
+                    answer = answer_question(user_query, combined_summary)
+                    result = answer if answer else "Sorry, I couldn't find an answer."
+                else:
+                    query = user_query
+                    answer = answer_question(user_query, summary)
+                    result = answer if answer else "Sorry, I couldn't find an answer."
+
+                result = format_bullet_points(result)
+                qa_entry = QuestionAnswer(question=user_query, answer=result)
+                db.session.add(qa_entry)
+                db.session.commit()
+            else:
+                result = "Please upload a file and generate a summary first."
+
+
 
 
     return render_template_string(html_template, result=result, query=query, result_sum=result_sum, status=status, history=history)
