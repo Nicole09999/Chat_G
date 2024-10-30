@@ -178,7 +178,7 @@ def chunk_text(text, chunk_size=1000):
 
 def summ(text, chunk_size=1000):
     summaries = []
-    api_key = "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"
+    api_key = ""
     client = groq.Client(api_key=api_key)
 
     for chunk in chunk_text(text, 1000):
